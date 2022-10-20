@@ -250,11 +250,13 @@ vcftools --gzvcf \
     return outfiles
 
 
-def call_cnvs(snp_metrics_file, out_path, intervals_file, min_variants=10, kb_window=100):
+def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants=10, kb_window=100):
 
     # Load in the data.
-    sample_df = pd.read_csv(snp_metrics_file, engine='c')
-
+    metrics_df = pd.read_csv(snp_metrics_file, engine='c')
+    bim = pd.read_csv(bim_path, sep='\s+', header=None, names=['chr','id','pos','bp','a1','a2'], usecols=['id'])
+    sample_df = metrics_df.loc[metrics_df.snpID.isin(bim.id)]
+    
     temp_interval_df = pd.read_csv(intervals_file, engine='c')
     temp_interval_df.drop_duplicates(subset = ["NAME"], inplace=True, keep='first')
     intervals_df = temp_interval_df.copy()
@@ -274,7 +276,7 @@ def call_cnvs(snp_metrics_file, out_path, intervals_file, min_variants=10, kb_wi
       interval_STOP_gene = intervals_df.loc[intervals_df['NAME'] == INTERVAL, 'STOP'].item()
       interval_START = interval_START_gene - (kb_window*1000)
       interval_STOP = interval_STOP_gene + (kb_window*1000)
-      temp_df = sample_df[(sample_df['chromosome'] == interval_CHR) & (sample_df['position'] >= interval_START) & (sample_df['position'] <= interval_STOP)]
+      temp_df = sample_df.loc[(sample_df['chromosome'] == interval_CHR) & (sample_df['position'] >= interval_START) & (sample_df['position'] <= interval_STOP)]
 
       if temp_df.shape[0] < min_variants:
 
@@ -293,8 +295,6 @@ def call_cnvs(snp_metrics_file, out_path, intervals_file, min_variants=10, kb_wi
     
 
 def create_cnv_dosage_matrices(in_path, samples_list, out_path):
-    
-#     chrom = str(chromosome)
     
     baf_out = f'{out_path}_BAF.csv'
     l2r_del_out = f'{out_path}_L2R_DEL.csv'
@@ -356,6 +356,11 @@ def create_cnv_dosage_matrices(in_path, samples_list, out_path):
 def CNV_WAS(cnv_dosage_file, pheno, covar, out_path):
     scaler = MinMaxScaler()
     dosage_df = pd.read_csv(cnv_dosage_file)
+    #fix column names
+    dosage_df.columns = [x.replace('-','_') for x in dosage_df.columns]
+    dosage_df.columns = [x.replace('.','_') for x in dosage_df.columns]
+    dosage_df.columns = [x.replace(' ','_') for x in dosage_df.columns]
+    
     pheno_df = pd.read_csv(pheno, sep='\t')
     covar_df = pd.read_csv(covar, sep='\t')
 
