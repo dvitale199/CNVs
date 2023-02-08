@@ -7,6 +7,7 @@ parser.add_argument('--out_path', type=str, default='Nope.', help='Path to outpu
 parser.add_argument('--intervals', type=str, default="glist_hg38_intervals.csv", help='Gene or other feature intervals to analyze. Header is [NAME,CHR,START,STOP], one line per itnervals.Autosomes only.')
 parser.add_argument('--min_variants', type=int, default=10, help='Minimum number of variants to run the CNV algorithm on per gene.')
 parser.add_argument('--kb_window', type=int, default=100, help='Kilobase window around each interval, a value of 100 would mean +/- 100kb.')
+parser.add_argument('--min_gentrain', type=float, default=0.2, help='minimum gentrain score for inclusion')
 parser.add_argument('--bim', type=str, default='Nope', help='path to bim file for quality-controlled snps')
 
 args = parser.parse_args()

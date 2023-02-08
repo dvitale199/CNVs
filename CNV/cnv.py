@@ -250,13 +250,13 @@ vcftools --gzvcf \
     return outfiles
 
 
-def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants=10, kb_window=100):
+def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants=10, kb_window=100, min_gentrain=0.2):
 
     # Load in the data.
     metrics_df = pd.read_csv(snp_metrics_file, engine='c')
     bim = pd.read_csv(bim_path, sep='\s+', header=None, names=['chr','id','pos','bp','a1','a2'], usecols=['id'])
-    sample_df = metrics_df.loc[metrics_df.snpID.isin(bim.id)]
-    
+    sample_df = metrics_df.loc[(metrics_df.snpID.isin(bim.id)) & (metrics_df.GenTrain_Score>=min_gentrain)]
+
     temp_interval_df = pd.read_csv(intervals_file, engine='c')
     temp_interval_df.drop_duplicates(subset = ["NAME"], inplace=True, keep='first')
     intervals_df = temp_interval_df.copy()
