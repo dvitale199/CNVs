@@ -9,11 +9,9 @@ from sklearn.preprocessing import MinMaxScaler
 import statsmodels.api as sm
 
 # Supress copy warning.
-
 pd.options.mode.chained_assignment = None
 
 from QC.utils import shell_do
-
 
 
 def get_vcf_names(vcf_path):
@@ -28,7 +26,6 @@ def get_vcf_names(vcf_path):
 
 def process_vcf_snps(vcf, out_path):
 
-    # out_colnames = ['CHROM','POS','ID','REF','ALT','sampleid','BAF','LRR']
     out_colnames = ['chromosome', 'position', 'snpID', 'Sample_ID', 'Ref', 'Alt','ALLELE_A','ALLELE_B', 'BAlleleFreq', 'LogRRatio', 'R', 'Theta', 'GenTrain_Score', 'GType']
 
     variant_metrics_out_df = pd.DataFrame(columns=out_colnames)
@@ -55,17 +52,6 @@ def process_vcf_snps(vcf, out_path):
         chunk_final.loc[:,'GType'] = chunk_final['GT'].map(gtype_map)
         chunk_final.drop(columns=['GT'], inplace=True)
         chunk_final.columns = ['chromosome', 'position', 'snpID', 'Sample_ID', 'Ref', 'Alt','ALLELE_A','ALLELE_B', 'BAlleleFreq', 'LogRRatio', 'R', 'Theta', 'GenTrain_Score', 'GType']
-        
-
-#         chunk.rename(columns={'#CHROM':'CHROM'}, inplace=True)
-#         chunk_melt = chunk.melt(id_vars=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO'], value_vars=IIDs, value_name='metrics')
-#         chunk_melt[['GT','GQ','IGC','BAF','LRR','NORMX','NORMY','R','THETA','X','Y']] = chunk_melt.metrics.str.split(':', expand=True)
-#         chunk_melt.drop(columns=['QUAL','FILTER','INFO','GQ','IGC','NORMX','NORMY','X','Y','metrics'], inplace=True)
-#         chunk_melt.rename(columns={'variable':'sampleid'}, inplace=True)
-#     #     print(chunk_melt)
-#         chunk_melt.loc[:,'CHROM'] = chunk_melt['CHROM'].astype(str).str.replace('chr','')
-#         chunk_final = chunk_melt.loc[:,['CHROM','POS','ID','sampleid','REF','ALT','GT','BAF','LRR', 'R', 'THETA']]
-#         chunk_final.columns = ['chromosome', 'position', 'snpID', 'Sample_ID', 'Allele1', 'Allele2', 'GT', 'BAlleleFreq', 'LogRRatio', 'R', 'Theta']
 
         chunk_final.to_csv(out_path, header=False, index=False, mode='a')
 
@@ -144,9 +130,9 @@ def clean_snp_metrics(metrics_in, out_path):
     for iid in snp_metrics_full.Sample_ID.unique():
         for chrom in sorted(snp_metrics_full.chromosome.unique()):
 
-            outfile_name = f'{out_path}_{iid}_chr{chrom}.csv'
+            outfile_name = f'{out_path}_{iid}_chr{chrom}.parquet'
             out_df = snp_metrics_full.loc[(snp_metrics_full.chromosome==chrom) & (snp_metrics_full.Sample_ID==iid)]
-            out_df.to_csv(outfile_name, header=True, index=False)
+            out_df.to_parquet(outfile_name, compression='brotli')
             
 
 
@@ -246,6 +232,14 @@ vcftools --gzvcf \
             
     out_df = pd.DataFrame({'path':outfiles})
     out_df.to_csv(f'{barcode_out_path}/snp_metrics_{barcode}.log', header=False, index=False)
+    
+    # clean up large intermediates
+    extensions = ['.vcf', '.gtc', '.vcf.gz', f'{204835450140}.csv']
+
+    for file in os.listdir(barcode_out_path):
+        for extension in extensions:
+            if file.endswith(extension):
+                os.remove(os.path.join(directory, file))
             
     return outfiles
 
@@ -281,6 +275,7 @@ def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants
       if temp_df.shape[0] < min_variants:
 
         results.append((INTERVAL, temp_df.shape[0], NaN, NaN, NaN, interval_START, interval_START_gene, interval_STOP_gene, interval_STOP))
+        
       else:
         temp_df['BAF_insertion'] = np.where( (temp_df['BAlleleFreq'].between(0.65, 0.85, inclusive='neither')) | (temp_df['BAlleleFreq'].between(0.15, 0.35, inclusive='neither')), 1, 0)
         temp_df['L2R_deletion'] = np.where( temp_df['LogRRatio'] < -0.2, 1, 0)
@@ -294,64 +289,66 @@ def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants
     output.to_csv(out_path, index=False)
     
 
-def create_cnv_dosage_matrices(in_path, samples_list, out_path):
+# def create_cnv_dosage_matrices(in_path, samples_list, out_path):
     
-    baf_out = f'{out_path}_BAF.csv'
-    l2r_del_out = f'{out_path}_L2R_DEL.csv'
-    l2r_dup_out = f'{out_path}_L2R_DUP.csv'
+#     baf_out = f'{out_path}_BAF.csv'
+#     l2r_del_out = f'{out_path}_L2R_DEL.csv'
+#     l2r_dup_out = f'{out_path}_L2R_DUP.csv'
     
-    baf_ = pd.DataFrame()
-    l2r_del_ = pd.DataFrame()
-    l2r_dup_ = pd.DataFrame()
+#     baf_ = pd.DataFrame()
+#     l2r_del_ = pd.DataFrame()
+#     l2r_dup_ = pd.DataFrame()
 
     
-    for sample in samples_list:
-        code = sample.split('_')[0]
+#     for sample in samples_list:
+#         code = sample.split('_')[0]
 
-        cnv_file = f'{in_path}/CNV_{sample}.csv'
-        cnvs = pd.read_csv(cnv_file)
-        cnvs.loc[:,'sampleid'] = sample
-        cnvs_final = cnvs.loc[cnvs.NUM_VARIANTS>=10]
+#         cnv_file = f'{in_path}/CNV_{sample}.csv'
+#         cnvs = pd.read_csv(cnv_file)
+#         cnvs.loc[:,'sampleid'] = sample
+#         cnvs_final = cnvs.loc[cnvs.NUM_VARIANTS>=10]
         
-        baf = cnvs_final.loc[:,['PERCENT_BAF_INSERTION','INTERVAL','sampleid']]
-        baf_pivot = baf.pivot(index='sampleid',columns='INTERVAL',values='PERCENT_BAF_INSERTION')
+#         baf = cnvs_final.loc[:,['PERCENT_BAF_INSERTION','INTERVAL','sampleid']]
+#         baf_pivot = baf.pivot(index='sampleid',columns='INTERVAL',values='PERCENT_BAF_INSERTION')
         
-        l2r_del = cnvs_final.loc[:,['PERCENT_L2R_DELETION', 'INTERVAL', 'sampleid']]
-        l2r_del_pivot = l2r_del.pivot(index='sampleid', columns='INTERVAL', values='PERCENT_L2R_DELETION')
+#         l2r_del = cnvs_final.loc[:,['PERCENT_L2R_DELETION', 'INTERVAL', 'sampleid']]
+#         l2r_del_pivot = l2r_del.pivot(index='sampleid', columns='INTERVAL', values='PERCENT_L2R_DELETION')
         
-        l2r_dup = cnvs_final.loc[:,['PERCENT_L2R_DUPLICATION', 'INTERVAL', 'sampleid']]
-        l2r_dup_pivot = l2r_dup.pivot(index='sampleid',columns='INTERVAL',values='PERCENT_L2R_DUPLICATION')
+#         l2r_dup = cnvs_final.loc[:,['PERCENT_L2R_DUPLICATION', 'INTERVAL', 'sampleid']]
+#         l2r_dup_pivot = l2r_dup.pivot(index='sampleid',columns='INTERVAL',values='PERCENT_L2R_DUPLICATION')
         
-        baf_ = pd.concat([baf_, baf_pivot])
-        l2r_del_ = pd.concat([l2r_del_, l2r_del_pivot])
-        l2r_dup_ = pd.concat([l2r_dup_, l2r_dup_pivot])
+#         baf_ = pd.concat([baf_, baf_pivot])
+#         l2r_del_ = pd.concat([l2r_del_, l2r_del_pivot])
+#         l2r_dup_ = pd.concat([l2r_dup_, l2r_dup_pivot])
         
-#         baf_ = baf_.append(baf_pivot)
-#         l2r_del_ = l2r_del_.append(l2r_del_pivot)
-#         l2r_dup_ =l2r_dup_.append(l2r_dup_pivot)
+# #         baf_ = baf_.append(baf_pivot)
+# #         l2r_del_ = l2r_del_.append(l2r_del_pivot)
+# #         l2r_dup_ =l2r_dup_.append(l2r_dup_pivot)
 
-    baf_.columns = [x.replace('-','_') for x in baf_.columns]
-    l2r_del_.columns = [x.replace('-','_') for x in l2r_del_.columns]
-    l2r_dup_.columns = [x.replace('-','_') for x in l2r_dup_.columns]
-    baf_.columns = [x.replace('.','_') for x in baf_.columns]
-    l2r_del_.columns = [x.replace('.','_') for x in l2r_del_.columns]
-    l2r_dup_.columns = [x.replace('.','_') for x in l2r_dup_.columns]
+#     baf_.columns = [x.replace('-','_') for x in baf_.columns]
+#     l2r_del_.columns = [x.replace('-','_') for x in l2r_del_.columns]
+#     l2r_dup_.columns = [x.replace('-','_') for x in l2r_dup_.columns]
+#     baf_.columns = [x.replace('.','_') for x in baf_.columns]
+#     l2r_del_.columns = [x.replace('.','_') for x in l2r_del_.columns]
+#     l2r_dup_.columns = [x.replace('.','_') for x in l2r_dup_.columns]
     
-    baf_.to_csv(baf_out, index=True, header=True)
-    l2r_del_.to_csv(l2r_del_out, index=True, header=True)
-    l2r_dup_.to_csv(l2r_dup_out, index=True, header=True)
+#     baf_.to_csv(baf_out, index=True, header=True)
+#     l2r_del_.to_csv(l2r_del_out, index=True, header=True)
+#     l2r_dup_.to_csv(l2r_dup_out, index=True, header=True)
     
-    out_dict = {
-        'baf_df': baf_,
-        'l2r_del_df': l2r_del_,
-        'l2r_dup_df': l2r_dup_,
-        'baf_path': baf_out,
-        'l2r_del_path': l2r_del_out,
-        'l2r_dup_path': l2r_dup_out
-                 }
+#     out_dict = {
+#         'baf_df': baf_,
+#         'l2r_del_df': l2r_del_,
+#         'l2r_dup_df': l2r_dup_,
+#         'baf_path': baf_out,
+#         'l2r_del_path': l2r_del_out,
+#         'l2r_dup_path': l2r_dup_out
+#                  }
     
-    return out_dict
+#     return out_dict
  
+
+    
     
 def CNV_WAS(cnv_dosage_file, pheno, covar, out_path):
     scaler = MinMaxScaler()
@@ -360,7 +357,7 @@ def CNV_WAS(cnv_dosage_file, pheno, covar, out_path):
     dosage_df.columns = [x.replace('-','_') for x in dosage_df.columns]
     dosage_df.columns = [x.replace('.','_') for x in dosage_df.columns]
     dosage_df.columns = [x.replace(' ','_') for x in dosage_df.columns]
-    
+
     pheno_df = pd.read_csv(pheno, sep='\t')
     covar_df = pd.read_csv(covar, sep='\t')
 
@@ -388,6 +385,19 @@ def CNV_WAS(cnv_dosage_file, pheno, covar, out_path):
     pred_list = [x for x in data_df.columns if x not in rm_pred]
     covars_list = [x for x in data_df.columns if x not in pred_list + [f'PC{i}' for i in range(11,21)] + ['pheno']]
 
+
+    genes_list = dosage_df.columns.drop('sampleid')
+    data_df_final = data_df.copy()
+    ctrl_stds = data_df.loc[data_df['pheno']==0, genes_list].std()
+    ctrl_means = data_df.loc[data_df['pheno']==0, genes_list].mean()
+
+    for gene in genes_list:
+        lower = (ctrl_means[gene]-(ctrl_stds[gene]*2))
+        upper = (ctrl_means[gene]+(ctrl_stds[gene]*2))         
+        data_df_final.loc[:, gene] = data_df_final.loc[:, gene].between(lower, upper, inclusive='both')
+
+    data_df_final.loc[:, genes_list] = data_df_final.loc[:, genes_list].astype(int)
+
     results = []
     fails = []
 
@@ -395,7 +405,7 @@ def CNV_WAS(cnv_dosage_file, pheno, covar, out_path):
         pred_name = pred_list[pred]
         formula = "pheno ~ " + pred_name + " + " + ' + '.join(covars_list)
 
-        fitted = sm.formula.glm(formula=formula, family=sm.families.Binomial(), data=data_df).fit()
+        fitted = sm.formula.glm(formula=formula, family=sm.families.Binomial(), data=data_df_final).fit()
         beta_coef  = fitted.params.loc[pred_name]
         beta_se  = fitted.bse.loc[pred_name]
         p_val = fitted.pvalues.loc[pred_name]
@@ -405,98 +415,4 @@ def CNV_WAS(cnv_dosage_file, pheno, covar, out_path):
 
     output = pd.DataFrame(results, columns=('PREDICTOR', 'BETA_COEF', 'BETA_SE','P_VAL'))
     output.to_csv(out_path, sep='\t', header=True, index=False)
-    
-    
-
-
-    
-    
-    
-    
-
-
-######## UNDER DEVELOPMENT #########
-
-# create dosage matrices
-# release2_cohorts = ['BCM','UMD','SYNAPS-KZ','MDGAP-QSBB','CORIELL']
-
-# release2_key = key.loc[key.study.isin(release2_cohorts)]
-# release2_key[['FID','GP2sampleID']].to_csv(f'{cnv_path}/release2.samples', sep='\t', header=False, index=False)
-# release2_key[['GP2sampleID','IID']].to_csv(f'{cnv_path}/release2_sample_id_key.csv')
-# release2_covars = release2_key.loc[:,['FID', 'GP2sampleID','sex_for_qc', 'age', 'age_of_onset']]
-# # release2_key[['sex_for_qc', 'age', 'age_of_onset']].to_csv(f')
-
-
-# labels = ['AAC','AFR','AJ','EAS','EUR','FIN','SAS','AMR','AMR_KZ']
-# # labels = ['AAC']
-
-# with open(f'{swarm_scripts_dir}/cnv_dosages.swarm', 'w') as f:
-#     for label in labels:
-#         geno = f'{cnv_path}/GP2_round2_{label}'
-
-#         cmd1 = f'\
-#     plink \
-#     --bfile {geno} \
-#     --keep {cnv_path}/release2.samples \
-#     --make-bed \
-#     --out {geno}_release2'
-
-#         cmd2 = f'plink \
-#     --bfile {geno}_release2 \
-#     --pca \
-#     --out {geno}_release2'
-
-#         cmds = [cmd1, cmd2]
-
-#         for cmd in cmds:
-#             shell_do(cmd)
-
-#         pcs = pd.read_csv(f'{geno}_release2.eigenvec', sep='\s+')
-#         pc_num = pcs.iloc[:, 2:].shape[1]
-#         pc_names = ['FID','GP2sampleID'] + [f'PC{i}' for i in range(1, pc_num+1)]
-#         pcs.columns = pc_names
-
-#         cov = pcs.merge(release2_covars, on=['FID','GP2sampleID'], how='left')
-#         cov.age.fillna(cov.age.mean(), inplace=True)
-#         cov.age_of_onset.fillna(cov.age_of_onset.mean(), inplace=True)
-#         cov.sex_for_qc.fillna(cov.sex_for_qc.median(), inplace=True)
-#         cov.rename(columns={'sex_for_qc':'sex'})
-#         cov.to_csv(f'{geno}_release2.cov', sep='\t', header=True, index=False)
-        
-#         samples = cov.merge(release2_key[['GP2sampleID','IID']], on='GP2sampleID', how='left')
-#         samples['IID'].to_csv(f'{geno}_release2_barcode.samples', header=False, index=False)
-        
-#         for chrom in chroms:
-#             dosage_cmd = f'\
-# python /data/vitaled2/GenoTools/run_cnv_dosage_pipeline.py \
-# --metrics_in {idat_path} \
-# --chrom {chrom} \
-# --samples {geno}_release2_barcode.samples \
-# --out_path {geno}'
-#             f.write(f'{dosage_cmd}\n')
-# f.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# cnv_dir = f'{basedir}/cnvs'
-# for chrom in chroms:
-#     create_cnv_dosage_matrices(in_path=ibx_idat_dir, samples_list=samples, chromosome=chrom, out_path=cnv_dir)
-    
-#     baf = f'{cnv_dir}/CNV_chr{chrom}_BAF.csv'
-#     lrr_del = f'{cnv_dir}/CNV_chr{chrom}_LRR_DEL.csv'
-#     lrr_dup = f'{cnv_dir}/CNV_chr{chrom}_LRR_DUP.csv'
-    
-    
     

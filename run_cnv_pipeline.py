@@ -18,5 +18,6 @@ out_path = args.out_path
 intervals = args.intervals
 min_variants = args.min_variants
 kb_window = args.kb_window
+min_gentrain = args.min_gentrain
 
-call_cnvs(snp_metrics_file=metrics, bim_path=bim, out_path=out_path, intervals_file=intervals, min_variants=min_variants, kb_window=kb_window)
+call_cnvs(snp_metrics_file=metrics, bim_path=bim, out_path=out_path, intervals_file=intervals, min_variants=min_variants, kb_window=kb_window, min_gentrain=min_gentrain)
