@@ -234,14 +234,76 @@ vcftools --gzvcf \
     out_df.to_csv(f'{barcode_out_path}/snp_metrics_{barcode}.log', header=False, index=False)
     
     # clean up large intermediates
-    extensions = ['.vcf', '.gtc', '.vcf.gz', f'{204835450140}.csv']
+    extensions = ['.vcf', '.gtc', '.vcf.gz', f'{snp_metrics_out}']
 
     for file in os.listdir(barcode_out_path):
         for extension in extensions:
             if file.endswith(extension):
-                os.remove(os.path.join(directory, file))
+                os.remove(os.path.join(barcode_out_path, file))
             
     return outfiles
+
+
+    
+def cnv_qc(geno_path, out_path, maf=0.01, geno=0.02, hwe=5e-6, indep_pairwise=[1000, 10, 0.01], samples_path=None):
+        
+    if samples_path:
+        cmd1 = f'\
+plink \
+--bfile {geno_path} \
+--keep {samples_path} \
+--make-bed \
+--out {out_path}_tmp1'
+        
+    else:
+        cmd1 = f'\
+plink \
+--bfile {geno_path} \
+--make-bed \
+--out {out_path}_tmp1'
+
+    cmd2 = f'\
+plink \
+--bfile {out_path}_tmp1 \
+--maf {maf} \
+--geno {geno} \
+--hwe {hwe} \
+--autosome \
+--make-bed \
+--out {out_path}_tmp2'
+
+    cmd3 = f'\
+plink \
+--bfile {out_path}_tmp2 \
+--indep-pairwise {indep_pairwise[0]} \
+{indep_pairwise[1]} \
+{indep_pairwise[2]} \
+--autosome \
+--out {out_path}_tmp2'
+        
+    cmd4 = f'\
+plink \
+--bfile {out_path}_tmp2 \
+--extract {out_path}_tmp2.prune.in \
+--pca \
+--make-bed \
+--out {out_path}'
+
+    cmds = [cmd1, cmd2, cmd3, cmd4]
+
+    for cmd in cmds:
+        shell_do(f'{cmd}')
+
+    # Define a list of temporary file names and extensions to remove
+    tmp_files = [f'{out_path}_tmp1', f'{out_path}_tmp2']
+    tmp_exts = ['bed', 'bim', 'fam', 'log','hh', 'prune.in', 'prune.out']
+
+    # Loop over the temporary files and extensions and remove the files if they exist
+    for tmp_file in tmp_files:
+        for tmp_ext in tmp_exts:
+            tmp_path = f'{tmp_file}.{tmp_ext}'
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
 
 def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants=10, kb_window=100, min_gentrain=0.2):
