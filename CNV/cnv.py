@@ -309,7 +309,7 @@ plink \
 def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants=10, kb_window=100, min_gentrain=0.2):
 
     # Load in the data.
-    metrics_df = pd.read_csv(snp_metrics_file, engine='c')
+    metrics_df = pd.read_parquet(snp_metrics_file)
     bim = pd.read_csv(bim_path, sep='\s+', header=None, names=['chr','id','pos','bp','a1','a2'], usecols=['id'])
     sample_df = metrics_df.loc[(metrics_df.snpID.isin(bim.id)) & (metrics_df.GenTrain_Score>=min_gentrain)]
 
@@ -348,7 +348,7 @@ def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants
         results.append((INTERVAL, temp_df.shape[0], PERCENT_BAF_INSERTION, PERCENT_L2R_DELETION, PERCENT_L2R_INSERTION, interval_START, interval_START_gene, interval_STOP_gene, interval_STOP))
 
     output = pd.DataFrame(results, columns=('INTERVAL', 'NUM_VARIANTS', 'PERCENT_BAF_INSERTION', 'PERCENT_L2R_DELETION','PERCENT_L2R_DUPLICATION','START_PLUS_WINDOW','START','STOP','STOP_PLUS_WINDOW'))
-    output.to_csv(out_path, index=False)
+    output.to_parquet(out_path, compression='brotli')
     
 
 # def create_cnv_dosage_matrices(in_path, samples_list, out_path):
