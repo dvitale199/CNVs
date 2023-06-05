@@ -17,13 +17,13 @@ dosagefile_out = args.out_path
 pheno_out = args.pheno_out
 
 dosage = pd.read_csv(dosagefile)
-dosage_merge = dosage.merge(key[['GP2sampleID','IID']], left_on='sampleid', right_on='IID')
-dosage_out = dosage_merge.drop(columns=['sampleid','IID']).set_index('GP2sampleID').reset_index().rename(columns={'GP2sampleID':'sampleid'})
+dosage_merge = dosage.merge(key[['GP2sampleID','filename']], left_on='sampleid', right_on='filename')
+dosage_out = dosage_merge.drop(columns=['sampleid','filename']).set_index('GP2sampleID').reset_index().rename(columns={'GP2sampleID':'sampleid'})
 
-dosage_pheno = dosage_out.merge(key.loc[:,['GP2sampleID','pheno']], left_on='sampleid', right_on='GP2sampleID', how='left')
+dosage_pheno = dosage_out.merge(key.loc[:,['GP2sampleID','pheno_for_qc']], left_on='sampleid', right_on='GP2sampleID', how='left')
 dosage_pheno2 = dosage_pheno.drop(columns=["GP2sampleID"])
-dosage_pheno_out = dosage_pheno2.loc[dosage_pheno2.pheno != -9]
-dosage_pheno_out.loc[:,'pheno'] = np.where(dosage_pheno_out.pheno == 1, 0, 1)
+dosage_pheno_out = dosage_pheno2.loc[dosage_pheno2['pheno_for_qc'] != -9]
+dosage_pheno_out.loc[:,'pheno'] = np.where(dosage_pheno_out['pheno_for_qc'] == 1, 0, 1)
 dosage_pheno_out[['sampleid','pheno']].to_csv(pheno_out, sep='\t', header=True, index=False)
 
 dosage_final = dosage_out.loc[dosage_out.sampleid.isin(dosage_pheno_out.sampleid)]
