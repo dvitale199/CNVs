@@ -242,7 +242,7 @@ def clean_snp_metrics_dask(snp_metrics, out_path):
     snp_metrics['a2'] = snp_metrics['a2'].mask((snp_metrics['ALLELE_B']==1), snp_metrics['Alt1'])
     snp_metrics['a2'] = snp_metrics['a2'].mask((snp_metrics['ALLELE_B']==2), snp_metrics['Alt2'])
 
-    dd.to_parquet(snp_metrics, out_path, compression='brotli', partition_on='Sample_ID')
+    dd.to_parquet(snp_metrics, out_path, compression='brotli', partition_on=['Sample_ID', 'chromosome'], write_index=False)
     
 
 
