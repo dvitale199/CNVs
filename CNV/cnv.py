@@ -419,7 +419,7 @@ def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants
     results = []
 
     interval_list = intervals_df['NAME'].unique()
-
+    
     for INTERVAL in interval_list:
       interval_CHR = intervals_df.loc[intervals_df['NAME'] == INTERVAL, 'CHR'].item()
       interval_START_gene = intervals_df.loc[intervals_df['NAME'] == INTERVAL, 'START'].item()
@@ -435,11 +435,11 @@ def call_cnvs(snp_metrics_file, bim_path, out_path, intervals_file, min_variants
       else:
         temp_df['BAF_insertion'] = np.where( (temp_df['BAlleleFreq'].between(0.65, 0.85, inclusive='neither')) | (temp_df['BAlleleFreq'].between(0.15, 0.35, inclusive='neither')), 1, 0)
         temp_df['L2R_deletion'] = np.where( temp_df['LogRRatio'] < -0.2, 1, 0)
-        temp_df['L2R_insertion'] = np.where( temp_df['LogRRatio'] > 0.2, 1, 0)
+        temp_df['L2R_duplication'] = np.where( temp_df['LogRRatio'] > 0.2, 1, 0)
         PERCENT_BAF_INSERTION = temp_df['BAF_insertion'].mean()
         PERCENT_L2R_DELETION = temp_df['L2R_deletion'].mean()
-        PERCENT_L2R_INSERTION = temp_df['L2R_insertion'].mean()
-        results.append((INTERVAL, temp_df.shape[0], PERCENT_BAF_INSERTION, PERCENT_L2R_DELETION, PERCENT_L2R_INSERTION, interval_START, interval_START_gene, interval_STOP_gene, interval_STOP))
+        PERCENT_L2R_DUPLICATION = temp_df['L2R_duplication'].mean()
+        results.append((INTERVAL, temp_df.shape[0], PERCENT_BAF_INSERTION, PERCENT_L2R_DELETION, PERCENT_L2R_DUPLICATION, interval_START, interval_START_gene, interval_STOP_gene, interval_STOP))
 
     output = pd.DataFrame(results, columns=('INTERVAL', 'NUM_VARIANTS', 'PERCENT_BAF_INSERTION', 'PERCENT_L2R_DELETION','PERCENT_L2R_DUPLICATION','START_PLUS_WINDOW','START','STOP','STOP_PLUS_WINDOW'))
     output.to_parquet(out_path, compression='brotli')
